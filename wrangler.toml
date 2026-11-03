@@ -1,0 +1,23 @@
+name = "memo"
+main = "worker/index.js"
+compatibility_date = "2026-10-01"
+
+# Vite 构建产物作为静态资源托管，未命中的路径回退到 index.html（SPA）
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# 复用已有 R2 存储桶 review-it，本应用的数据统一放在 memo/ 前缀下
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "review-it"
+
+# 自定义域名：部署时自动创建 DNS 记录并签发证书
+[[routes]]
+pattern = "memo.gtbro.vip"
+custom_domain = true
+
+[vars]
+# 浏览器端 PBKDF2 的盐（非机密，需要下发给前端）
+AUTH_SALT = "memo-pin-v1-9f3c7a41b25d8e60"
