@@ -55,6 +55,14 @@ npm run dev         # Vite 热更新，http://127.0.0.1:5173（/api 代理到 87
 
 只想预览完整效果时，直接 `npm run build && npm run worker`，然后打开 <http://127.0.0.1:8787>。
 
+## 自检
+
+```bash
+MEMO_BASE=https://memo.gtbro.vip MEMO_PIN=261023 node scripts/smoke-auth.mjs
+```
+
+会检查健康接口、记录数量、PIN 登录与 Cookie 属性（HttpOnly / Secure / SameSite=Lax / Max-Age）。
+
 ## 部署
 
 ```bash
