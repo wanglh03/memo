@@ -108,6 +108,7 @@ function sanitizeDraft(body) {
   // date 为空 = 未指定日期，归入「未来事项」
   const unscheduled = body.date == null || body.date === ''
   let dateKey = null
+  let endKey = null
 
   if (!unscheduled) {
     const date = typeof body.date === 'string' ? body.date : ''
@@ -119,6 +120,22 @@ function sanitizeDraft(body) {
 
     dateKey = `${date}T${String(hour).padStart(2, '0')}`
     if (!isValidDateKey(dateKey)) throw new HttpError(400, '日期不合法')
+  }
+
+  // 结束时间可选，可以跨日，但必须晚于开始时间
+  if (body.endDate) {
+    if (unscheduled) throw new HttpError(400, '有结束时间就要先选开始日期')
+
+    const endDate = typeof body.endDate === 'string' ? body.endDate : ''
+    const endHour = Number(body.endHour)
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || !Number.isInteger(endHour) || endHour < 0 || endHour > 23) {
+      throw new HttpError(400, '结束时间不合法')
+    }
+
+    endKey = `${endDate}T${String(endHour).padStart(2, '0')}`
+    if (!isValidDateKey(endKey)) throw new HttpError(400, '结束时间不合法')
+    if (endKey <= dateKey) throw new HttpError(400, '结束时间要晚于开始时间')
   }
 
   const title = String(body.title ?? '')
@@ -142,7 +159,7 @@ function sanitizeDraft(body) {
     throw new HttpError(400, '标题、内容、图片至少填一样')
   }
 
-  return { date: dateKey, title, content, images }
+  return { date: dateKey, end: endKey, title, content, images }
 }
 
 async function listItems(env) {

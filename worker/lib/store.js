@@ -75,9 +75,14 @@ function normalizeItem(raw, index) {
 
   const now = new Date().toISOString()
 
+  // 结束时间必须晚于开始时间，否则忽略
+  const end =
+    hasDate && isValidDateKey(raw.end) && raw.end > raw.date ? raw.end : null
+
   return {
     id,
     date: hasDate ? raw.date : null,
+    end,
     title: String(raw.title ?? '').slice(0, 120),
     content: String(raw.content ?? '').slice(0, 20000),
     images: normalizeImages(raw.images),

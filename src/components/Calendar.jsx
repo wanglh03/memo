@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { WEEKDAYS, buildMonthGrid, formatMonthTitle, todayKey } from '../lib/date.js'
+import { WEEKDAYS, buildMonthGrid, formatMonthTitle, itemDayKeys, todayKey } from '../lib/date.js'
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from './icons.jsx'
 
 /**
@@ -13,19 +13,16 @@ export function Calendar({ items, selectedDay, month, onMonthChange, onSelectDay
   const counts = useMemo(() => {
     const map = new Map()
     for (const item of items) {
-      if (!item.date) continue
-      const day = item.date.slice(0, 10)
-      map.set(day, (map.get(day) || 0) + 1)
+      for (const day of itemDayKeys(item)) map.set(day, (map.get(day) || 0) + 1)
     }
     return map
   }, [items])
 
   const monthTotal = useMemo(() => {
     const prefix = `${month.year}-${String(month.monthIndex + 1).padStart(2, '0')}`
-    let total = 0
-    for (const [day, count] of counts) if (day.startsWith(prefix)) total += count
-    return total
-  }, [counts, month])
+    // 跨日事项只算一条，不按占用的天数重复计数
+    return items.filter((item) => itemDayKeys(item).some((day) => day.startsWith(prefix))).length
+  }, [items, month])
 
   const shiftMonth = (delta) => {
     const date = new Date(month.year, month.monthIndex + delta, 1)

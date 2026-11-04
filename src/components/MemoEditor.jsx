@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, imageUrl } from '../lib/api.js'
-import { HOURS, todayKey } from '../lib/date.js'
+import { HOURS, addDays, todayKey } from '../lib/date.js'
 import { compressImage } from '../lib/image.js'
 import { Markdown } from './Markdown.jsx'
 import { Button, IconButton, Modal } from './ui.jsx'
 import {
   BoldIcon,
-  CalendarIcon,
-  ClockIcon,
   CodeIcon,
   EyeIcon,
   HeadingIcon,
@@ -29,9 +27,10 @@ const fieldBase =
 const fieldClass = `w-full ${fieldBase}`
 
 export function MemoEditor({ open, initial, dayKey, unscheduled = false, onClose, onSaved, onNeedAuth }) {
-  const [hasDate, setHasDate] = useState(!unscheduled)
-  const [date, setDate] = useState(todayKey())
+  const [date, setDate] = useState('')
   const [hour, setHour] = useState('09')
+  const [endDate, setEndDate] = useState('')
+  const [endHour, setEndHour] = useState('10')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [tab, setTab] = useState('write')
@@ -50,17 +49,19 @@ export function MemoEditor({ open, initial, dayKey, unscheduled = false, onClose
 
     if (initial) {
       const dated = Boolean(initial.date)
-      setHasDate(dated)
-      setDate(dated ? initial.date.slice(0, 10) : dayKey || todayKey())
-      setHour(dated ? initial.date.slice(11, 13) : String(now.getHours()).padStart(2, '0'))
+      setDate(dated ? initial.date.slice(0, 10) : '')
+      setHour(dated ? initial.date.slice(11, 13) : '09')
+      setEndDate(initial.end ? initial.end.slice(0, 10) : '')
+      setEndHour(initial.end ? initial.end.slice(11, 13) : '10')
       setTitle(initial.title || '')
       setContent(initial.content || '')
       setImages(initial.images || [])
     } else {
       const target = dayKey || todayKey()
-      setHasDate(!unscheduled)
-      setDate(target)
+      setDate(unscheduled ? '' : target)
       setHour(target === todayKey() ? String(now.getHours()).padStart(2, '0') : '09')
+      setEndDate('')
+      setEndHour('10')
       setTitle('')
       setContent('')
       setImages([])
@@ -71,6 +72,19 @@ export function MemoEditor({ open, initial, dayKey, unscheduled = false, onClose
     setSaving(false)
     setDragging(false)
   }, [open, initial, dayKey, unscheduled])
+
+  /** 默认结束时间 = 开始后一小时；23 点开始则顺延到次日 0 点 */
+  function addEndTime() {
+    if (!date) return
+    const startHour = Number(hour)
+    if (startHour >= 23) {
+      setEndDate(addDays(date, 1))
+      setEndHour('00')
+    } else {
+      setEndDate(date)
+      setEndHour(String(startHour + 1).padStart(2, '0'))
+    }
+  }
 
   // 关闭时释放临时预览 URL
   useEffect(() => {
@@ -168,6 +182,16 @@ export function MemoEditor({ open, initial, dayKey, unscheduled = false, onClose
 
   async function handleSave() {
     if (!canSave || saving) return
+
+    if (date && endDate) {
+      const startKey = `${date}T${hour}`
+      const endKey = `${endDate}T${endHour}`
+      if (endKey <= startKey) {
+        setError('结束时间要晚于开始时间')
+        return
+      }
+    }
+
     setSaving(true)
     setError('')
 
@@ -185,8 +209,10 @@ export function MemoEditor({ open, initial, dayKey, unscheduled = false, onClose
       }
 
       const payload = {
-        date: hasDate ? date : null,
-        hour: hasDate ? Number(hour) : 0,
+        date: date || null,
+        hour: date ? Number(hour) : 0,
+        endDate: date && endDate ? endDate : null,
+        endHour: date && endDate ? Number(endHour) : null,
         title: title.trim(),
         content,
         images: nextImages,
@@ -243,59 +269,95 @@ export function MemoEditor({ open, initial, dayKey, unscheduled = false, onClose
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
           <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-[12px] font-medium text-muted">时间</span>
-              <div className="flex rounded-lg border border-line bg-surface-2 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setHasDate(true)}
-                  className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] transition ${
-                    hasDate ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  <CalendarIcon size={13} />
-                  指定日期
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHasDate(false)}
-                  className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] transition ${
-                    !hasDate ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  <ClockIcon size={13} />
-                  未来事项
-                </button>
-              </div>
+              <span className="text-[12px] font-medium text-muted">日期</span>
+              <span className="text-[11px] text-muted">
+                {date ? '留空可改为「未来事项」' : '不填日期 → 未来事项'}
+              </span>
             </div>
 
-            {hasDate ? (
-              <div className="grid grid-cols-[1fr_auto] gap-2.5">
-                <input
-                  type="date"
-                  value={date}
-                  aria-label="日期"
-                  onChange={(event) => setDate(event.target.value)}
-                  className={fieldClass}
-                  required
-                />
-                <select
-                  value={hour}
-                  aria-label="时段"
-                  onChange={(event) => setHour(event.target.value)}
-                  className={`${fieldBase} w-[92px] shrink-0 tabular-nums`}
-                >
-                  {HOURS.map((value) => (
-                    <option key={value} value={value}>
-                      {value}:00
-                    </option>
-                  ))}
-                </select>
+            <div className="space-y-2">
+              <div>
+                <span className="mb-1 block text-[11px] text-muted">开始</span>
+                <div className="grid grid-cols-[1fr_auto] gap-2.5">
+                  <input
+                    type="date"
+                    value={date}
+                    aria-label="开始日期"
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setDate(value)
+                      if (!value) setEndDate('')
+                    }}
+                    className={fieldClass}
+                  />
+                  <select
+                    value={hour}
+                    aria-label="开始时段"
+                    disabled={!date}
+                    onChange={(event) => setHour(event.target.value)}
+                    className={`${fieldBase} w-[92px] shrink-0 tabular-nums disabled:opacity-50`}
+                  >
+                    {HOURS.map((value) => (
+                      <option key={value} value={value}>
+                        {value}:00
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-line bg-surface-2/60 px-3 py-2.5 text-[12.5px] leading-relaxed text-muted">
-                不指定日期，先放进「未来事项」，之后随时可以再补上时间。
-              </p>
-            )}
+
+              {date ? (
+                endDate ? (
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-[11px] text-muted">结束（可以跨日）</span>
+                      <button
+                        type="button"
+                        onClick={() => setEndDate('')}
+                        className="text-[11px] text-muted transition hover:text-danger"
+                      >
+                        移除
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-[1fr_auto] gap-2.5">
+                      <input
+                        type="date"
+                        value={endDate}
+                        min={date}
+                        aria-label="结束日期"
+                        onChange={(event) => setEndDate(event.target.value)}
+                        className={fieldClass}
+                      />
+                      <select
+                        value={endHour}
+                        aria-label="结束时段"
+                        onChange={(event) => setEndHour(event.target.value)}
+                        className={`${fieldBase} w-[92px] shrink-0 tabular-nums`}
+                      >
+                        {HOURS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}:00
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={addEndTime}
+                    className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[12px] text-accent transition hover:bg-accent-soft"
+                  >
+                    <PlusIcon size={13} />
+                    添加结束时间（可跨日）
+                  </button>
+                )
+              ) : (
+                <p className="rounded-xl border border-dashed border-line bg-surface-2/60 px-3 py-2 text-[12px] leading-relaxed text-muted">
+                  没有日期，会放进「未来事项」，之后随时可以补上。
+                </p>
+              )}
+            </div>
           </div>
 
           <label className="block">

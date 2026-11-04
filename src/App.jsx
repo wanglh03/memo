@@ -5,11 +5,12 @@ import { FutureList } from './components/FutureList.jsx'
 import { Header } from './components/Header.jsx'
 import { Lightbox } from './components/Lightbox.jsx'
 import { MemoEditor } from './components/MemoEditor.jsx'
+import { PinnedUpcoming } from './components/PinnedUpcoming.jsx'
 import { PinDialog } from './components/PinDialog.jsx'
 import { Button, ConfirmDialog, Toast } from './components/ui.jsx'
 import { AlertIcon, PlusIcon } from './components/icons.jsx'
 import { api } from './lib/api.js'
-import { addDays, parseDayKey, todayKey } from './lib/date.js'
+import { addDays, occursOn, parseDayKey, todayKey } from './lib/date.js'
 import { applyTheme, resolveTheme, storeTheme } from './lib/theme.js'
 
 function currentMonth() {
@@ -170,7 +171,7 @@ export default function App() {
 
   const datedItems = items.filter((item) => Boolean(item.date))
   const futureItems = items.filter((item) => !item.date)
-  const dayItems = datedItems.filter((item) => item.date.startsWith(selectedDay))
+  const dayItems = datedItems.filter((item) => occursOn(item, selectedDay))
 
   return (
     <div className="min-h-dvh">
@@ -183,7 +184,9 @@ export default function App() {
       />
 
       <main className="mx-auto w-full max-w-6xl px-3.5 pb-28 pt-4 sm:px-6 sm:pt-6 lg:pb-12">
-        <div className="grid gap-4 lg:grid-cols-[356px_minmax(0,1fr)] lg:items-start lg:gap-7">
+        <PinnedUpcoming items={datedItems} onSelectDay={selectDay} />
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[356px_minmax(0,1fr)] lg:items-start lg:gap-7">
           <div className="space-y-4 lg:sticky lg:top-[84px]">
             <Calendar
               items={datedItems}

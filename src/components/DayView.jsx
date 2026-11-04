@@ -1,5 +1,5 @@
 import { imageUrl } from '../lib/api.js'
-import { formatDayWithWeek, relativeDayLabel } from '../lib/date.js'
+import { formatDayWithWeek, isMultiDay, relativeDayLabel, timeRangeLabel } from '../lib/date.js'
 import { Markdown } from './Markdown.jsx'
 import {
   ChevronLeftIcon,
@@ -46,8 +46,9 @@ function EntryImages({ images, onPreview }) {
   )
 }
 
-function EntryCard({ item, onEdit, onDelete, onPreview }) {
+function EntryCard({ item, dayKey, onEdit, onDelete, onPreview }) {
   const time = item.date.slice(11, 13)
+  const spanning = isMultiDay(item)
 
   return (
     <article className="group relative overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface p-4 shadow-[var(--c-shadow)] sm:p-5">
@@ -60,11 +61,25 @@ function EntryCard({ item, onEdit, onDelete, onPreview }) {
         </div>
 
         <div className="min-w-0 flex-1">
-          {item.title ? (
-            <h3 className="text-[16px] font-semibold leading-snug text-ink">{item.title}</h3>
-          ) : (
-            <h3 className="text-[15px] font-medium leading-snug text-muted">无标题</h3>
-          )}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {item.title ? (
+              <h3 className="text-[16px] font-semibold leading-snug text-ink">{item.title}</h3>
+            ) : (
+              <h3 className="text-[15px] font-medium leading-snug text-muted">无标题</h3>
+            )}
+
+            {item.end ? (
+              <span className="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
+                {timeRangeLabel(item, dayKey)}
+              </span>
+            ) : null}
+
+            {spanning && item.end ? (
+              <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-accent">
+                跨日
+              </span>
+            ) : null}
+          </div>
 
           {item.content?.trim() ? <Markdown className="mt-1.5">{item.content}</Markdown> : null}
 
@@ -162,6 +177,7 @@ export function DayView({ dayKey, items, onAdd, onEdit, onDelete, onPreview, onN
             <EntryCard
               key={item.id}
               item={item}
+              dayKey={dayKey}
               onEdit={onEdit}
               onDelete={onDelete}
               onPreview={onPreview}

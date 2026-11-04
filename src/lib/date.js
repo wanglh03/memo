@@ -113,6 +113,61 @@ export function buildMonthGrid(year, monthIndex) {
   })
 }
 
+/**
+ * 一条事项在日历 / 当天视图里占用的日期：
+ * - 只有开始时间：只占开始那天
+ * - 带结束时间且跨日：占从开始到结束的每一天
+ */
+export function itemDayKeys(item, limit = 62) {
+  if (!item?.date) return []
+  const startDay = item.date.slice(0, 10)
+  const endDay = item.end ? item.end.slice(0, 10) : startDay
+  if (endDay <= startDay) return [startDay]
+
+  const keys = [startDay]
+  const cursor = parseDayKey(startDay)
+  while (keys.length < limit) {
+    cursor.setDate(cursor.getDate() + 1)
+    const key = toDayKey(cursor)
+    keys.push(key)
+    if (key >= endDay) break
+  }
+  return keys
+}
+
+export function occursOn(item, dayKey) {
+  if (!item?.date) return false
+  if (item.date.slice(0, 10) > dayKey) return false
+  const endDay = item.end ? item.end.slice(0, 10) : item.date.slice(0, 10)
+  return endDay >= dayKey
+}
+
+export function isMultiDay(item) {
+  if (!item?.date || !item.end) return false
+  return item.date.slice(0, 10) !== item.end.slice(0, 10)
+}
+
+/**
+ * 18:00 / 18:00–20:00 / 18:00 → 次日 02:00 / 11月20日 18:00 → 11月21日 02:00
+ * refDay 用于跨日事项出现在「后一天」的视图里时，把开始日期写清楚。
+ */
+export function timeRangeLabel(item, refDay) {
+  if (!item?.date) return ''
+  const startHour = item.date.slice(11, 13)
+  if (!item.end) return `${startHour}:00`
+
+  const endHour = item.end.slice(11, 13)
+  const startDay = item.date.slice(0, 10)
+  const endDay = item.end.slice(0, 10)
+
+  if (startDay === endDay) return `${startHour}:00–${endHour}:00`
+  if (refDay && refDay === endDay && refDay !== startDay) {
+    return `${formatDayLabel(startDay)} ${startHour}:00 → ${endHour}:00`
+  }
+  if (addDays(startDay, 1) === endDay) return `${startHour}:00 → 次日 ${endHour}:00`
+  return `${formatDayLabel(startDay)} ${startHour}:00 → ${formatDayLabel(endDay)} ${endHour}:00`
+}
+
 export function sortByDate(items) {
   return [...items].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1
