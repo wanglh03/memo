@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Calendar } from './components/Calendar.jsx'
 import { DayView } from './components/DayView.jsx'
+import { FutureList } from './components/FutureList.jsx'
 import { Header } from './components/Header.jsx'
 import { Lightbox } from './components/Lightbox.jsx'
 import { MemoEditor } from './components/MemoEditor.jsx'
@@ -94,7 +95,11 @@ export default function App() {
   }, [])
 
   const handleAdd = useCallback(() => {
-    guard(() => setEditor({ open: true, item: null }))
+    guard(() => setEditor({ open: true, item: null, unscheduled: false }))
+  }, [guard])
+
+  const handleAddFuture = useCallback(() => {
+    guard(() => setEditor({ open: true, item: null, unscheduled: true }))
   }, [guard])
 
   const handleEdit = useCallback(
@@ -116,9 +121,9 @@ export default function App() {
       setItems((prev) =>
         isEdit ? prev.map((entry) => (entry.id === item.id ? item : entry)) : [...prev, item],
       )
-      setEditor({ open: false, item: null })
-      selectDay(item.date.slice(0, 10))
-      notify(isEdit ? '已更新' : '已添加')
+      setEditor({ open: false, item: null, unscheduled: false })
+      if (item.date) selectDay(item.date.slice(0, 10))
+      notify(isEdit ? '已更新' : item.date ? '已添加' : '已放入未来事项')
     },
     [notify, selectDay],
   )
@@ -163,7 +168,9 @@ export default function App() {
     notify('已上锁，下次写入需要重新输入 PIN')
   }
 
-  const dayItems = items.filter((item) => item.date.startsWith(selectedDay))
+  const datedItems = items.filter((item) => Boolean(item.date))
+  const futureItems = items.filter((item) => !item.date)
+  const dayItems = datedItems.filter((item) => item.date.startsWith(selectedDay))
 
   return (
     <div className="min-h-dvh">
@@ -177,44 +184,65 @@ export default function App() {
 
       <main className="mx-auto w-full max-w-6xl px-3.5 pb-28 pt-4 sm:px-6 sm:pt-6 lg:pb-12">
         <div className="grid gap-4 lg:grid-cols-[356px_minmax(0,1fr)] lg:items-start lg:gap-7">
-          <div className="lg:sticky lg:top-[84px]">
+          <div className="space-y-4 lg:sticky lg:top-[84px]">
             <Calendar
-              items={items}
+              items={datedItems}
               selectedDay={selectedDay}
               month={month}
               onMonthChange={setMonth}
               onSelectDay={selectDay}
             />
-          </div>
 
-          {status === 'loading' ? (
-            <div className="space-y-3">
-              <div className="h-[70px] animate-pulse rounded-2xl bg-surface/70" />
-              <div className="h-[150px] animate-pulse rounded-2xl bg-surface/70" />
-              <div className="h-[150px] animate-pulse rounded-2xl bg-surface/70" />
-            </div>
-          ) : status === 'error' ? (
-            <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-line bg-surface px-6 py-14 text-center">
-              <div className="grid h-12 w-12 place-items-center rounded-full bg-danger-soft text-danger">
-                <AlertIcon size={22} />
-              </div>
-              <p className="mt-3 text-sm font-medium text-ink">内容没能加载出来</p>
-              <p className="mt-1 max-w-[260px] text-[13px] text-muted">{loadError}</p>
-              <Button variant="outline" className="mt-4" onClick={load}>
-                重新加载
-              </Button>
-            </div>
-          ) : (
-            <DayView
-              dayKey={selectedDay}
-              items={dayItems}
-              onAdd={handleAdd}
+            <FutureList
+              items={futureItems}
+              onAdd={handleAddFuture}
               onEdit={handleEdit}
               onDelete={handleDeleteRequest}
               onPreview={(images, index) => setLightbox({ images, index })}
-              onNavigateDay={navigateDay}
+              defaultOpen
+              className="hidden lg:block"
             />
-          )}
+          </div>
+
+          <div className="min-w-0 space-y-4">
+            <FutureList
+              items={futureItems}
+              onAdd={handleAddFuture}
+              onEdit={handleEdit}
+              onDelete={handleDeleteRequest}
+              onPreview={(images, index) => setLightbox({ images, index })}
+              className="lg:hidden"
+            />
+
+            {status === 'loading' ? (
+              <div className="space-y-3">
+                <div className="h-[70px] animate-pulse rounded-2xl bg-surface/70" />
+                <div className="h-[150px] animate-pulse rounded-2xl bg-surface/70" />
+                <div className="h-[150px] animate-pulse rounded-2xl bg-surface/70" />
+              </div>
+            ) : status === 'error' ? (
+              <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-line bg-surface px-6 py-14 text-center">
+                <div className="grid h-12 w-12 place-items-center rounded-full bg-danger-soft text-danger">
+                  <AlertIcon size={22} />
+                </div>
+                <p className="mt-3 text-sm font-medium text-ink">内容没能加载出来</p>
+                <p className="mt-1 max-w-[260px] text-[13px] text-muted">{loadError}</p>
+                <Button variant="outline" className="mt-4" onClick={load}>
+                  重新加载
+                </Button>
+              </div>
+            ) : (
+              <DayView
+                dayKey={selectedDay}
+                items={dayItems}
+                onAdd={handleAdd}
+                onEdit={handleEdit}
+                onDelete={handleDeleteRequest}
+                onPreview={(images, index) => setLightbox({ images, index })}
+                onNavigateDay={navigateDay}
+              />
+            )}
+          </div>
         </div>
 
         <footer className="mt-10 text-center text-[11px] leading-relaxed text-muted/80">
@@ -235,7 +263,8 @@ export default function App() {
         open={editor.open}
         initial={editor.item}
         dayKey={selectedDay}
-        onClose={() => setEditor({ open: false, item: null })}
+        unscheduled={Boolean(editor.unscheduled)}
+        onClose={() => setEditor({ open: false, item: null, unscheduled: false })}
         onSaved={handleSaved}
         onNeedAuth={() => {
           pendingRef.current = null

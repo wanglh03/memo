@@ -148,7 +148,7 @@ export function DayView({ dayKey, items, onAdd, onEdit, onDelete, onPreview, onN
           <button
             type="button"
             onClick={onAdd}
-            className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[13px] font-medium text-accent-ink transition hover:brightness-110"
+            className="ml-1 hidden h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[13px] font-medium text-accent-ink transition hover:brightness-110 sm:inline-flex"
           >
             <PlusIcon size={16} />
             添加

@@ -61,18 +61,23 @@ function normalizeImages(raw) {
 
 function normalizeItem(raw, index) {
   if (!raw || typeof raw !== 'object') return null
-  if (!isValidDateKey(raw.date)) return null
+
+  const hasDate = isValidDateKey(raw.date)
+  // date 为空 = 未指定日期（未来事项）；给了日期但不合法则丢弃
+  if (!hasDate && raw.date != null && raw.date !== '') return null
+
+  const fallbackId = `legacy-${index}-${String(raw.date || 'later').replace(/[^0-9a-zA-Z]/g, '')}`
 
   const id =
     typeof raw.id === 'string' && /^[A-Za-z0-9_-]{4,64}$/.test(raw.id)
       ? raw.id
-      : `legacy-${index}-${raw.date.replace(/[^0-9]/g, '')}`
+      : fallbackId
 
   const now = new Date().toISOString()
 
   return {
     id,
-    date: raw.date,
+    date: hasDate ? raw.date : null,
     title: String(raw.title ?? '').slice(0, 120),
     content: String(raw.content ?? '').slice(0, 20000),
     images: normalizeImages(raw.images),
@@ -141,7 +146,13 @@ export function withWriteLock(task) {
 
 export function sortItems(items) {
   return [...items].sort((a, b) => {
-    if (a.date !== b.date) return a.date < b.date ? 1 : -1
+    // 有日期的排在前面（新的在上），未指定日期的排在最后
+    if (a.date && b.date) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1
+      return (a.updatedAt || '') < (b.updatedAt || '') ? 1 : -1
+    }
+    if (a.date) return -1
+    if (b.date) return 1
     return (a.updatedAt || '') < (b.updatedAt || '') ? 1 : -1
   })
 }

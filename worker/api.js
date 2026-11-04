@@ -105,15 +105,21 @@ async function handleLogout(request, env, url) {
 /* ----------------------------------- 事项 ---------------------------------- */
 
 function sanitizeDraft(body) {
-  const date = typeof body.date === 'string' ? body.date : ''
-  const hour = Number(body.hour)
+  // date 为空 = 未指定日期，归入「未来事项」
+  const unscheduled = body.date == null || body.date === ''
+  let dateKey = null
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(hour) || hour < 0 || hour > 23) {
-    throw new HttpError(400, '请选择日期和小时')
+  if (!unscheduled) {
+    const date = typeof body.date === 'string' ? body.date : ''
+    const hour = Number(body.hour)
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(hour) || hour < 0 || hour > 23) {
+      throw new HttpError(400, '请选择日期和小时')
+    }
+
+    dateKey = `${date}T${String(hour).padStart(2, '0')}`
+    if (!isValidDateKey(dateKey)) throw new HttpError(400, '日期不合法')
   }
-
-  const dateKey = `${date}T${String(hour).padStart(2, '0')}`
-  if (!isValidDateKey(dateKey)) throw new HttpError(400, '日期不合法')
 
   const title = String(body.title ?? '')
     .replace(/\s+/g, ' ')

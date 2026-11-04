@@ -13,6 +13,7 @@ export function Calendar({ items, selectedDay, month, onMonthChange, onSelectDay
   const counts = useMemo(() => {
     const map = new Map()
     for (const item of items) {
+      if (!item.date) continue
       const day = item.date.slice(0, 10)
       map.set(day, (map.get(day) || 0) + 1)
     }
